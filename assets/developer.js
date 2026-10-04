@@ -1,5 +1,6 @@
 // website/assets/developer.js
-// NEXPLAY Developer Dashboard + редактирование + удаление игр.
+// NEXPLAY Developer Dashboard: создание, редактирование, удаление игр,
+// публикация версий, обложка-кроппер, скриншоты, теги, уведомления.
 
 const CFG = window.NEXPLAY_CONFIG;
 const supa = window.supabase.createClient(CFG.SUPABASE_URL, CFG.SUPABASE_KEY);
@@ -9,6 +10,7 @@ const $$ = (s) => Array.from(document.querySelectorAll(s));
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({
   "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
 }[c]));
+
 const timeAgo = (d) => {
   if (!d) return "";
   const s = (Date.now() - new Date(d).getTime()) / 1000;
@@ -18,6 +20,7 @@ const timeAgo = (d) => {
   if (s < 604800) return Math.floor(s/86400) + " дн назад";
   return new Date(d).toLocaleDateString("ru-RU");
 };
+
 function toast(msg, kind = "") {
   const el = document.createElement("div");
   el.className = "toast " + kind; el.textContent = msg;
@@ -25,6 +28,7 @@ function toast(msg, kind = "") {
   setTimeout(() => { el.style.opacity = "0"; el.style.transition = "opacity .3s"; }, 2600);
   setTimeout(() => el.remove(), 3000);
 }
+
 function slugify(s) {
   return String(s).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60);
 }
@@ -32,11 +36,8 @@ function slugify(s) {
 const Dev = {
   state: {
     user: null, profile: null, myGames: [], tagsCache: [],
-    currentGameForVersion: null,
-    editingGame: null,
-    cropper: null,
-    selectedScreenshots: [],
-    existingScreenshots: [],
+    currentGameForVersion: null, editingGame: null,
+    cropper: null, selectedScreenshots: [], existingScreenshots: [],
   },
 
   async init() {
@@ -54,17 +55,25 @@ const Dev = {
     this.renderTagSuggest();
 
     if (!this.state.user) { $("#notAuth").classList.remove("hidden"); return; }
-    if (!["developer","admin"].includes(this.state.profile?.role)) { $("#becomeDev").classList.remove("hidden"); return; }
+    if (!["developer","admin"].includes(this.state.profile?.role)) {
+      $("#becomeDev").classList.remove("hidden"); return;
+    }
     await this.loadDashboard();
   },
 
   renderAuthArea() {
     const el = $("#authArea"); if (!el) return;
-    if (!this.state.user) { el.innerHTML = `<a class="btn btn-sm" href="index.html">Войти</a>`; return; }
+    if (!this.state.user) {
+      el.innerHTML = `<a class="btn btn-sm" href="index.html">Войти</a>`; return;
+    }
     const name = this.state.profile?.username ?? "user";
     const initial = (name[0] || "?").toUpperCase();
-    const av = this.state.profile?.avatar_url ? `<img src="${esc(this.state.profile.avatar_url)}" alt="">` : initial;
-    el.innerHTML = `<div style="display:flex;align-items:center;gap:10px"><a class="btn btn-sm btn-ghost" href="index.html">На сайт</a><div class="avatar">${av}</div></div>`;
+    const av = this.state.profile?.avatar_url
+      ? `<img src="${esc(this.state.profile.avatar_url)}" alt="">` : initial;
+    el.innerHTML = `<div style="display:flex;align-items:center;gap:10px">
+      <a class="btn btn-sm btn-ghost" href="index.html">На сайт</a>
+      <div class="avatar">${av}</div>
+    </div>`;
   },
 
   async becomeDeveloper() {
@@ -80,14 +89,16 @@ const Dev = {
     $("#dashboard").classList.remove("hidden");
 
     const { data: games, error } = await supa.from("games").select("*")
-      .eq("developer_id", this.state.user.id).order("created_at", { ascending: false });
+      .eq("developer_id", this.state.user.id)
+      .order("created_at", { ascending: false });
     if (error) { toast(error.message, "error"); return; }
     this.state.myGames = games ?? [];
 
     const ids = this.state.myGames.map(g => g.id);
     const tagMap = {};
     if (ids.length) {
-      const { data: gt } = await supa.from("game_tags").select("game_id, tags!inner(name, slug)").in("game_id", ids);
+      const { data: gt } = await supa.from("game_tags")
+        .select("game_id, tags!inner(name, slug)").in("game_id", ids);
       (gt ?? []).forEach(r => { (tagMap[r.game_id] ??= []).push(r.tags); });
     }
 
@@ -96,8 +107,12 @@ const Dev = {
       el.innerHTML = `<div class="empty" style="grid-column:1/-1">Пока нет игр. Создай первую!</div>`;
     } else {
       el.innerHTML = this.state.myGames.map(g => {
-        const cover = g.cover_url ? `<img src="${esc(g.cover_url)}" alt="">` : `<div style="width:100%;height:100%;background:linear-gradient(135deg,#241a4d,#0f1b3b)"></div>`;
-        const statusPill = g.status === "published" ? `<span class="pill" style="background:rgba(76,217,123,.15);color:var(--success);border-color:transparent">published</span>` : `<span class="pill">${esc(g.status)}</span>`;
+        const cover = g.cover_url
+          ? `<img src="${esc(g.cover_url)}" alt="">`
+          : `<div style="width:100%;height:100%;background:linear-gradient(135deg,#241a4d,#0f1b3b)"></div>`;
+        const statusPill = g.status === "published"
+          ? `<span class="pill" style="background:rgba(76,217,123,.15);color:var(--success);border-color:transparent">published</span>`
+          : `<span class="pill">${esc(g.status)}</span>`;
         const tags = (tagMap[g.id] ?? []).map(t => `<span class="tag">${esc(t.name)}</span>`).join("");
         return `
           <div class="card" style="cursor:default">
@@ -119,39 +134,47 @@ const Dev = {
           </div>`;
       }).join("");
     }
+
     await this.refreshNotifBadge();
   },
 
   async refreshNotifBadge() {
-    const { count } = await supa.from("notifications").select("*", { count: "exact", head: true })
+    const { count } = await supa.from("notifications")
+      .select("*", { count: "exact", head: true })
       .eq("user_id", this.state.user.id).eq("is_read", false);
-    const b = $("#notifBadge");
-    if (!b) return;
-    if (count > 0) { b.textContent = count; b.style.display = "inline-block"; } else { b.style.display = "none"; }
+    const b = $("#notifBadge"); if (!b) return;
+    if (count > 0) { b.textContent = count; b.style.display = "inline-block"; }
+    else { b.style.display = "none"; }
   },
 
   async openNotifications() {
     $("#notifModal").classList.add("open");
-    const { data } = await supa.from("notifications").select("*, games(title, slug)")
-      .eq("user_id", this.state.user.id).order("created_at", { ascending: false }).limit(60);
+    const { data } = await supa.from("notifications")
+      .select("*, games(title, slug)")
+      .eq("user_id", this.state.user.id)
+      .order("created_at", { ascending: false }).limit(60);
     const list = data ?? [];
     const el = $("#notifList");
     if (!list.length) { el.innerHTML = `<div class="empty">Уведомлений пока нет</div>`; return; }
-    const labels = { comment: "💬 Комментарий", download: "⬇ Скачивание", version_published: "🚀 Версия", report: "⚠ Жалоба", system: "ℹ Система" };
+    const labels = { comment: "💬 Комментарий", download: "⬇ Скачивание",
+                     version_published: "🚀 Версия", report: "⚠ Жалоба", system: "ℹ Система" };
     el.innerHTML = list.map(n => `
       <div style="padding:12px;border-bottom:1px solid var(--border);${n.is_read ? "opacity:.6" : ""}">
         <div style="display:flex;justify-content:space-between;gap:10px">
           <b>${labels[n.kind] ?? n.kind}</b>
           <span style="color:var(--muted);font-size:12px">${timeAgo(n.created_at)}</span>
         </div>
-        ${n.games ? `<div style="color:var(--muted);font-size:13px;margin-top:4px">Игра: <a href="index.html#/game/${esc(n.games.slug)}">${esc(n.games.title)}</a></div>` : ""}
+        ${n.games ? `<div style="color:var(--muted);font-size:13px;margin-top:4px">
+          Игра: <a href="index.html#/game/${esc(n.games.slug)}">${esc(n.games.title)}</a>
+        </div>` : ""}
       </div>`).join("");
-    await supa.from("notifications").update({ is_read: true }).eq("user_id", this.state.user.id).eq("is_read", false);
+    await supa.from("notifications").update({ is_read: true })
+      .eq("user_id", this.state.user.id).eq("is_read", false);
     this.refreshNotifBadge();
   },
   closeNotifications() { $("#notifModal").classList.remove("open"); },
 
-  // ---------- CREATE ----------
+  // ---------- CREATE / EDIT ----------
   openCreate() {
     this.state.editingGame = null;
     $("#createModal").classList.add("open");
@@ -168,9 +191,7 @@ const Dev = {
     $("#fShots").onchange = (e) => this.previewShots(e.target.files);
     $("#fCover").onchange = (e) => { const f = e.target.files?.[0]; if (f) this.openCropper(f); };
   },
-  closeCreate() { $("#createModal").classList.remove("open"); this.state.editingGame = null; },
 
-  // ---------- EDIT ----------
   async openEdit(gameId) {
     const g = this.state.myGames.find(x => x.id === gameId);
     if (!g) return;
@@ -182,7 +203,6 @@ const Dev = {
     $("#btnCreateSubmit").textContent = "Сохранить изменения";
     const sc = $("#createModal .modal-scroll"); if (sc) sc.scrollTop = 0;
 
-    // Заполняем поля
     $("#fTitle").value = g.title || "";
     $("#fSlug").value = g.slug || "";
     $("#fDevName").value = g.developer_name || "";
@@ -196,23 +216,20 @@ const Dev = {
     $("#fDrop").checked = !!g.is_drop;
     this.onEngineChange();
 
-    // Теги
     const { data: gt } = await supa.from("game_tags").select("tags!inner(name)").eq("game_id", gameId);
     $("#fTags").value = (gt ?? []).map(r => r.tags.name).join(", ");
 
-    // Требования
-    const sr = (j) => !j || typeof j !== "object" ? "" : Object.entries(j).map(([k,v]) => `${k}: ${v}`).join("\n");
+    const sr = (j) => !j || typeof j !== "object" ? "" :
+      Object.entries(j).map(([k,v]) => `${k}: ${v}`).join("\n");
     $("#fSysMin").value = sr(g.sysreq_min);
     $("#fSysRec").value = sr(g.sysreq_rec);
 
-    // Скриншоты
-    this.state.existingScreenshots = [];
     this.state.selectedScreenshots = [];
-    const { data: shots } = await supa.from("game_screenshots").select("*").eq("game_id", gameId).order("position");
+    const { data: shots } = await supa.from("game_screenshots").select("*")
+      .eq("game_id", gameId).order("position");
     this.state.existingScreenshots = shots ?? [];
     this.renderExistingShots();
 
-    // Обложка превью
     const old = $("#fCover")?.parentElement?.querySelector(".cover-preview");
     if (old) old.remove();
     if (g.cover_url) {
@@ -223,23 +240,27 @@ const Dev = {
       $("#fCover").parentElement.appendChild(wrap);
     }
 
-    // Обработчики
     $("#fSlug").dataset.touched = "1";
     $("#fCover").onchange = (e) => { const f = e.target.files?.[0]; if (f) this.openCropper(f); };
     $("#fShots").onchange = (e) => this.previewShots(e.target.files);
     this.state.cropper = null;
   },
 
+  closeCreate() {
+    $("#createModal").classList.remove("open");
+    this.state.editingGame = null;
+  },
+
   renderExistingShots() {
-    const el = $("#shotsPreview");
-    el.innerHTML = "";
+    const el = $("#shotsPreview"); el.innerHTML = "";
     for (const s of this.state.existingScreenshots) {
       const div = document.createElement("div");
       div.className = "shot";
       div.style.position = "relative";
       div.innerHTML = `
         <img src="${esc(s.url)}">
-        <button class="btn btn-sm" onclick="Dev.removeExistingShot('${s.id}')" style="position:absolute;top:6px;right:6px;padding:2px 8px;background:rgba(255,92,124,.9);border:none;color:#fff">✕</button>
+        <button class="btn btn-sm" onclick="Dev.removeExistingShot('${s.id}')"
+          style="position:absolute;top:6px;right:6px;padding:2px 8px;background:rgba(255,92,124,.9);border:none;color:#fff">✕</button>
       `;
       el.appendChild(div);
     }
@@ -247,9 +268,15 @@ const Dev = {
 
   async removeExistingShot(id) {
     if (!confirm("Удалить скриншот?")) return;
+    const s = this.state.existingScreenshots.find(x => x.id === id);
     const { error } = await supa.from("game_screenshots").delete().eq("id", id);
     if (error) { toast(error.message, "error"); return; }
-    this.state.existingScreenshots = this.state.existingScreenshots.filter(s => s.id !== id);
+    // удалить файл из Storage
+    if (s?.url) {
+      const p = this._storagePathFromUrl(s.url, "screenshots");
+      if (p) await supa.storage.from("screenshots").remove([p]).catch(() => {});
+    }
+    this.state.existingScreenshots = this.state.existingScreenshots.filter(x => x.id !== id);
     this.renderExistingShots();
   },
 
@@ -355,7 +382,8 @@ const Dev = {
     };
     let resizing = false, resizeStart = null;
     handle.onmousedown = (e) => {
-      resizing = true; resizeStart = { x: e.clientX, y: e.clientY, r: { ...this.state.cropper.rect } };
+      resizing = true;
+      resizeStart = { x: e.clientX, y: e.clientY, r: { ...this.state.cropper.rect } };
       e.stopPropagation(); e.preventDefault();
     };
     const onResizeMove = (e) => {
@@ -440,15 +468,17 @@ const Dev = {
     const editing = this.state.editingGame;
 
     try {
-      // Уникальность slug — если создаём новую, или меняем slug существующей
       const { data: existsSlug } = await supa.from("games").select("id").eq("slug", slug).maybeSingle();
-      if (existsSlug && (!editing || existsSlug.id !== editing.id)) throw new Error("Этот slug уже занят");
+      if (existsSlug && (!editing || existsSlug.id !== editing.id)) {
+        throw new Error("Этот slug уже занят");
+      }
 
-      // Обложка
       let coverUrl = editing ? editing.cover_url : null;
       if (this.state.cropper?.resultBlob) {
-        coverUrl = await this.uploadImage(this.state.cropper.resultBlob, "covers",
-          `${this.state.user.id}/${slug}-${Date.now()}.jpg`);
+        coverUrl = await this.uploadImage(
+          this.state.cropper.resultBlob, "covers",
+          `${this.state.user.id}/${slug}-${Date.now()}.jpg`
+        );
       }
 
       const payload = {
@@ -466,12 +496,10 @@ const Dev = {
         if (error) throw error;
         gameId = editing.id;
 
-        // Обновить теги: удалить все, добавить новые
         await supa.from("game_tags").delete().eq("game_id", gameId);
         const tagNames = tagsRaw.split(",").map(s => s.trim()).filter(Boolean);
         for (const name of tagNames) await this.attachTag(gameId, name);
 
-        // Новые скриншоты (старые, что не удалены — остались)
         for (const shot of this.state.selectedScreenshots) {
           const url = await this.uploadImage(shot.file, "screenshots",
             `${this.state.user.id}/${gameId}/${Date.now()}-${shot.file.name}`);
@@ -522,17 +550,64 @@ const Dev = {
     this.onEngineChange();
   },
 
-  // ---------- DELETE GAME ----------
+  // ---------- DELETE GAME (полное удаление) ----------
   async deleteGame(gameId) {
     const g = this.state.myGames.find(x => x.id === gameId);
     if (!g) return;
-    if (!confirm(`Удалить игру «${g.title}» навсегда?\n\nЭто удалит все версии, скриншоты, комментарии и записи в библиотеках. Файлы в Storage останутся, их можно удалить вручную.`)) return;
-    if (!confirm("Точно удалить? Отменить нельзя.")) return;
+    if (!confirm(`Удалить игру «${g.title}» НАВСЕГДА?\n\nБудут удалены: все версии, скриншоты, комментарии, записи в библиотеках пользователей, И ВСЕ ФАЙЛЫ (обложка, скриншоты, билды).\n\nОтменить нельзя.`)) return;
+    if (!confirm("Точно удалить? Жёстко, без возврата.")) return;
 
-    const { error } = await supa.from("games").delete().eq("id", gameId);
-    if (error) { toast("Ошибка: " + error.message, "error"); return; }
-    toast("Игра удалена", "success");
-    await this.loadDashboard();
+    try {
+      const pathsByBucket = { covers: [], screenshots: [], builds: [] };
+
+      if (g.cover_url) {
+        const p = this._storagePathFromUrl(g.cover_url, "covers");
+        if (p) pathsByBucket.covers.push(p);
+      }
+
+      const { data: shots } = await supa.from("game_screenshots")
+        .select("url").eq("game_id", gameId);
+      for (const s of (shots ?? [])) {
+        const p = this._storagePathFromUrl(s.url, "screenshots");
+        if (p) pathsByBucket.screenshots.push(p);
+      }
+
+      const { data: versions } = await supa.from("game_versions")
+        .select("id").eq("game_id", gameId);
+      if (versions?.length) {
+        const vids = versions.map(v => v.id);
+        const { data: files } = await supa.from("version_files")
+          .select("download_url").in("version_id", vids);
+        for (const f of (files ?? [])) {
+          const p = this._storagePathFromUrl(f.download_url, "builds");
+          if (p) pathsByBucket.builds.push(p);
+        }
+      }
+
+      for (const [bucket, paths] of Object.entries(pathsByBucket)) {
+        if (!paths.length) continue;
+        const { error } = await supa.storage.from(bucket).remove(paths);
+        if (error) console.warn(`storage remove ${bucket}:`, error.message);
+      }
+
+      const { error } = await supa.from("games").delete().eq("id", gameId);
+      if (error) throw error;
+
+      toast("Игра и все её файлы удалены", "success");
+      await this.loadDashboard();
+    } catch (e) {
+      toast("Ошибка удаления: " + (e.message || e), "error");
+    }
+  },
+
+  _storagePathFromUrl(url, expectedBucket) {
+    if (!url) return null;
+    try {
+      const marker = `/object/public/${expectedBucket}/`;
+      const i = url.indexOf(marker);
+      if (i === -1) return null;
+      return decodeURIComponent(url.slice(i + marker.length).split("?")[0]);
+    } catch { return null; }
   },
 
   // ---------- VERSION ----------
@@ -553,6 +628,7 @@ const Dev = {
   async submitVersion() {
     const errEl = $("#versionError"); errEl.classList.add("hidden");
     const err = (m) => { errEl.textContent = m; errEl.classList.remove("hidden"); toast(m, "error"); };
+
     const gameId = this.state.currentGameForVersion;
     const version = $("#vVersion").value.trim();
     const exe = $("#vExe").value.trim() || null;
@@ -563,16 +639,21 @@ const Dev = {
 
     if (!version) return err("Укажи версию");
     if (!fileInput.files.length && !external) return err("Загрузи ZIP или укажи ссылку");
+
     const file = fileInput.files[0];
-    if (file && file.size > CFG.MAX_BUILD_FILE_SIZE)
+    if (file && file.size > CFG.MAX_BUILD_FILE_SIZE) {
       return err(`Файл больше ${(CFG.MAX_BUILD_FILE_SIZE / 1024 / 1024).toFixed(0)} МБ`);
+    }
 
     $("#btnVersionSubmit").disabled = true;
     $("#btnVersionSubmit").innerHTML = `<span class="loader"></span>`;
-    const prog = $("#versionProgress"); const bar = $("#versionProgressBar"); const txt = $("#versionProgressText");
+    const prog = $("#versionProgress");
+    const bar = $("#versionProgressBar");
+    const txt = $("#versionProgressText");
     prog.classList.remove("hidden");
 
     try {
+      // Если версия с таким номером уже есть — снести её (CASCADE снесёт version_files)
       const { data: existing } = await supa.from("game_versions").select("id")
         .eq("game_id", gameId).eq("version", version).maybeSingle();
       if (existing) {
@@ -585,11 +666,11 @@ const Dev = {
       if (vErr) throw vErr;
 
       let downloadUrl = external || null;
-      let fileName = null; let fileSize = 0;
+      let fileName = null, fileSize = 0;
 
       if (file) {
         bar.style.width = "0%";
-        txt.textContent = "Загрузка...";
+        txt.textContent = "Загрузка в хранилище...";
         fileName = file.name; fileSize = file.size;
         const path = `${this.state.user.id}/${gameId}/${version}/${Date.now()}-${file.name}`;
         const { error: upErr } = await supa.storage.from("builds").upload(path, file, {

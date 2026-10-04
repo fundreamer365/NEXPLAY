@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>NEXPLAY — Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/app.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-inner">
+    <a href="index.html" class="logo">NEXPLAY</a>
+    <nav class="nav-links">
+      <a href="index.html">Каталог</a>
+      <a href="developer.html">Разработчикам</a>
+      <a href="admin.html" class="active">Admin</a>
+    </nav>
+    <div class="spacer"></div>
+    <div id="authArea"></div>
+  </div>
+</header>
+
+<main class="container">
+
+  <div class="section">
+    <h1 style="font-size:38px;margin:0 0 6px;letter-spacing:-0.02em">Admin Dashboard</h1>
+    <p class="sub">Пользователи, игры, жалобы, статистика.</p>
+  </div>
+
+  <section id="denied" class="hidden">
+    <div class="empty">
+      <p>Доступ только для администраторов.</p>
+      <a class="btn" href="index.html">На главную</a>
+    </div>
+  </section>
+
+  <section id="admin" class="hidden">
+    <div class="game-stats" style="grid-template-columns:repeat(4,1fr);margin-bottom:24px">
+      <div class="stat"><div class="stat-value" id="stUsers">—</div><div class="stat-label">Пользователей</div></div>
+      <div class="stat"><div class="stat-value" id="stGames">—</div><div class="stat-label">Игр</div></div>
+      <div class="stat"><div class="stat-value" id="stDownloads">—</div><div class="stat-label">Скачиваний</div></div>
+      <div class="stat"><div class="stat-value" id="stReports">—</div><div class="stat-label">Жалоб</div></div>
+    </div>
+
+    <div class="game-tags" style="margin-bottom:20px">
+      <span class="tag" id="tabUsers"  onclick="Admin.tab('users')">Пользователи</span>
+      <span class="tag" id="tabGames"  onclick="Admin.tab('games')">Игры</span>
+      <span class="tag" id="tabReports" onclick="Admin.tab('reports')">Жалобы</span>
+    </div>
+
+    <div id="panel"></div>
+  </section>
+
+</main>
+
+<div class="toasts" id="toasts"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="config.js"></script>
+<script src="assets/admin.js"></script>
+</body>
+</html>

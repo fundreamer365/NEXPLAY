@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>NEXPLAY — Discover games</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/app.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-inner">
+    <a href="#" class="logo" onclick="App.goHome();return false;">NEXPLAY</a>
+    <nav class="nav-links" id="navLinks">
+      <a href="#" data-nav="home" class="active" onclick="App.goHome();return false;">Главная</a>
+      <a href="developer.html">Разработчикам</a>
+    </nav>
+    <div class="spacer"></div>
+    <div class="search-box" id="searchBox">
+      <input type="text" id="searchInput" placeholder="Поиск игр, разработчиков, тегов..." autocomplete="off">
+    </div>
+    <div id="authArea"></div>
+  </div>
+</header>
+
+<main class="container" id="main">
+
+  <!-- HOME -->
+  <section id="pageHome">
+    <div class="hero">
+      <h1>Discover games.<br>Publish. Play.</h1>
+      <p>Независимая платформа для небольших игр. Находи новые проекты, читай обновления, устанавливай одной кнопкой через NEXPLAY Launcher.</p>
+      <div class="hero-actions">
+        <a class="btn btn-primary btn-lg" href="developer.html">Опубликовать игру</a>
+        <a class="btn btn-lg" href="#catalog" onclick="App.scrollCatalog();return false;">Смотреть каталог</a>
+      </div>
+    </div>
+
+    <div class="section" id="secDrops">
+      <h2>🔴 NEXPLAY Drops</h2>
+      <p class="sub">Свежие релизы за последние 48 часов.</p>
+      <div class="grid" id="gridDrops"></div>
+    </div>
+
+    <div class="section" id="secPopular">
+      <h2>Популярное</h2>
+      <p class="sub">Топ по количеству скачиваний.</p>
+      <div class="grid" id="gridPopular"></div>
+    </div>
+
+    <div class="section" id="secFresh">
+      <h2>Fresh Builds</h2>
+      <p class="sub">Игры, обновившиеся за последние 24 часа.</p>
+      <div class="grid" id="gridFresh"></div>
+    </div>
+
+    <div class="section" id="catalog">
+      <h2>Каталог</h2>
+      <p class="sub">Все опубликованные игры.</p>
+      <div class="grid" id="gridAll"></div>
+    </div>
+
+    <div class="section">
+      <h2>Жанры</h2>
+      <p class="sub">Кликни по тегу, чтобы отфильтровать каталог.</p>
+      <div class="game-tags" id="tagsCloud"></div>
+    </div>
+  </section>
+
+  <!-- GAME PAGE -->
+  <section id="pageGame" class="hidden"></section>
+
+  <!-- PROFILE -->
+  <section id="pageProfile" class="hidden"></section>
+
+</main>
+
+<!-- AUTH MODAL -->
+<div class="modal-back" id="authModal">
+  <div class="modal">
+    <h3 id="authTitle">Вход в NEXPLAY</h3>
+    <p class="sub" id="authSub">Войди или создай аккаунт</p>
+
+    <div class="form" id="authForm">
+      <div class="field" id="usernameField" style="display:none">
+        <label>Username</label>
+        <input type="text" id="authUsername" placeholder="твой_ник">
+      </div>
+      <div class="field">
+        <label>Email</label>
+        <input type="email" id="authEmail" placeholder="you@example.com">
+      </div>
+      <div class="field">
+        <label>Пароль</label>
+        <input type="password" id="authPassword" placeholder="минимум 6 символов">
+      </div>
+      <div id="authError" class="hidden" style="color:var(--danger);font-size:13px"></div>
+    </div>
+
+    <div class="actions">
+      <button class="btn btn-ghost" onclick="App.closeAuth()">Отмена</button>
+      <button class="btn" id="btnToggleAuth" onclick="App.toggleAuthMode()">Регистрация</button>
+      <button class="btn btn-primary" id="btnAuthSubmit" onclick="App.submitAuth()">Войти</button>
+    </div>
+  </div>
+</div>
+
+<!-- IMAGE VIEWER -->
+<div class="modal-back" id="imgModal" onclick="App.closeImage()">
+  <img id="imgModalSrc" style="max-width:92vw;max-height:92vh;border-radius:14px;box-shadow:var(--shadow)">
+</div>
+
+<div class="toasts" id="toasts"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="config.js"></script>
+<script src="assets/app.js"></script>
+</body>
+</html>

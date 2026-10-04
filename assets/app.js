@@ -1,4 +1,6 @@
 // website/assets/app.js
+// NEXPLAY — главная страница, каталог, страница игры, профиль, auth.
+
 const CFG = window.NEXPLAY_CONFIG;
 const supa = window.supabase.createClient(CFG.SUPABASE_URL, CFG.SUPABASE_KEY);
 
@@ -74,7 +76,11 @@ const App = {
     el.innerHTML = `<div class="avatar" onclick="App.showProfile()" title="${esc(name)}">${av}</div>`;
   },
 
-  openAuth(mode = "login") { state.authMode = mode; this.syncAuthMode(); $("#authModal").classList.add("open"); $("#authError").classList.add("hidden"); },
+  openAuth(mode = "login") {
+    state.authMode = mode; this.syncAuthMode();
+    $("#authModal").classList.add("open");
+    $("#authError").classList.add("hidden");
+  },
   closeAuth() { $("#authModal").classList.remove("open"); },
   toggleAuthMode() { state.authMode = state.authMode === "login" ? "signup" : "login"; this.syncAuthMode(); },
   syncAuthMode() {
@@ -103,19 +109,25 @@ const App = {
       if (state.authMode === "signup") {
         const { data: exists } = await supa.from("profiles").select("id").eq("username", nickRaw).maybeSingle();
         if (exists) throw new Error("Этот ник уже занят");
-        const { error } = await supa.auth.signUp({ email: pseudoEmail, password, options: { data: { username: nickRaw } } });
+        const { error } = await supa.auth.signUp({
+          email: pseudoEmail, password,
+          options: { data: { username: nickRaw } },
+        });
         if (error) throw error;
         const { data: sess } = await supa.auth.getSession();
         if (!sess?.session) {
           const { error: e2 } = await supa.auth.signInWithPassword({ email: pseudoEmail, password });
-          if (e2) throw new Error("Аккаунт создан, но нужен вход. Обратись к админу.");
+          if (e2) throw new Error("Аккаунт создан. Войди заново.");
         }
         toast("Добро пожаловать!", "success");
         this.closeAuth();
         location.reload();
       } else {
         const { error } = await supa.auth.signInWithPassword({ email: pseudoEmail, password });
-        if (error) { if (/Invalid login/i.test(error.message)) throw new Error("Неверный ник или пароль"); throw error; }
+        if (error) {
+          if (/Invalid login/i.test(error.message)) throw new Error("Неверный ник или пароль");
+          throw error;
+        }
         toast("С возвращением!", "success");
         this.closeAuth();
         location.reload();
@@ -152,10 +164,14 @@ const App = {
   async loadHome() {
     const since = (h) => new Date(Date.now() - h * 3600 * 1000).toISOString();
     const [drops, popular, fresh, all] = await Promise.all([
-      supa.from("games").select("*").eq("status","published").eq("is_drop", true).gte("created_at", since(48)).order("created_at", { ascending: false }).limit(8),
-      supa.from("games").select("*").eq("status","published").order("downloads", { ascending: false }).limit(8),
-      supa.from("games").select("*").eq("status","published").gte("updated_at", since(24)).order("updated_at", { ascending: false }).limit(8),
-      supa.from("games").select("*").eq("status","published").order("created_at", { ascending: false }).limit(40),
+      supa.from("games").select("*").eq("status","published").eq("is_drop", true)
+          .gte("created_at", since(48)).order("created_at", { ascending: false }).limit(8),
+      supa.from("games").select("*").eq("status","published")
+          .order("downloads", { ascending: false }).limit(8),
+      supa.from("games").select("*").eq("status","published")
+          .gte("updated_at", since(24)).order("updated_at", { ascending: false }).limit(8),
+      supa.from("games").select("*").eq("status","published")
+          .order("created_at", { ascending: false }).limit(40),
     ]);
     this.fillGrid("#gridDrops", drops.data ?? []);
     this.fillGrid("#gridPopular", popular.data ?? []);
@@ -172,15 +188,18 @@ const App = {
   gameCard(g) {
     const drop = g.is_drop && (Date.now() - new Date(g.created_at).getTime() < 48*3600*1000);
     const fresh = (Date.now() - new Date(g.updated_at).getTime() < 24*3600*1000);
-    const cover = g.cover_url ? `<img src="${esc(g.cover_url)}" alt="" loading="lazy">` :
-      `<div style="width:100%;height:100%;background:linear-gradient(135deg,#241a4d,#0f1b3b)"></div>`;
-    const eng = g.engine === "unity" ? `Unity ${g.unity_backend ? "· " + g.unity_backend.toUpperCase() : ""}`
+    const cover = g.cover_url
+      ? `<img src="${esc(g.cover_url)}" alt="" loading="lazy">`
+      : `<div style="width:100%;height:100%;background:linear-gradient(135deg,#241a4d,#0f1b3b)"></div>`;
+    const eng = g.engine === "unity"
+      ? `Unity ${g.unity_backend ? "· " + g.unity_backend.toUpperCase() : ""}`
       : (g.engine === "unreal" ? "Unreal" : "");
     return `
       <div class="card" onclick="location.hash='#/game/${esc(g.slug)}'">
         <div class="card-cover">
           ${cover}
-          ${drop ? `<div class="badge badge-drop">NEW DROP</div>` : (fresh ? `<div class="badge badge-new">FRESH BUILD</div>` : "")}
+          ${drop ? `<div class="badge badge-drop">NEW DROP</div>`
+                 : (fresh ? `<div class="badge badge-new">FRESH BUILD</div>` : "")}
           ${eng ? `<div class="badge badge-engine">${esc(eng)}</div>` : ""}
         </div>
         <div class="card-body">
@@ -202,12 +221,16 @@ const App = {
   },
   async doSearch(q, tag = null) {
     if (!q && !tag) { this.goHome(); await this.loadHome(); return; }
-    const { data, error } = await supa.rpc("search_games", { p_query: q || null, p_tag: tag || null, p_limit: 40, p_offset: 0 });
+    const { data, error } = await supa.rpc("search_games", {
+      p_query: q || null, p_tag: tag || null, p_limit: 40, p_offset: 0,
+    });
     if (error) { toast(error.message, "error"); return; }
     $("#pageHome").classList.remove("hidden");
     $("#pageGame").classList.add("hidden");
     $("#pageProfile").classList.add("hidden");
-    ["secDrops","secPopular","secFresh"].forEach(id => { const el = document.getElementById(id); if (el) el.style.display = "none"; });
+    ["secDrops","secPopular","secFresh"].forEach(id => {
+      const el = document.getElementById(id); if (el) el.style.display = "none";
+    });
     $("#catalog")?.scrollIntoView();
     document.querySelector("#catalog h2").textContent = tag ? `Результаты по тегу: ${tag}` : `Результаты поиска: "${q}"`;
     this.fillGrid("#gridAll", data ?? []);
@@ -225,28 +248,42 @@ const App = {
     try {
       const { data: g, error } = await supa.from("games").select("*").eq("slug", slug).maybeSingle();
       if (error) {
-        el.innerHTML = `<div class="empty"><p>Ошибка БД</p><p style="font-size:13px;color:var(--muted);white-space:pre-wrap">${esc(error.message)}</p><a class="btn" href="#" onclick="App.goHome();return false;">На главную</a></div>`;
+        el.innerHTML = `<div class="empty">
+          <p>Ошибка БД</p>
+          <p style="font-size:13px;color:var(--muted);white-space:pre-wrap">${esc(error.message)}</p>
+          <a class="btn" href="#" onclick="App.goHome();return false;">На главную</a>
+        </div>`;
         return;
       }
       if (!g) {
-        el.innerHTML = `<div class="empty"><p>Игра «${esc(slug)}» не найдена</p><a class="btn" href="#" onclick="App.goHome();return false;">На главную</a></div>`;
+        el.innerHTML = `<div class="empty">
+          <p>Игра «${esc(slug)}» не найдена</p>
+          <a class="btn" href="#" onclick="App.goHome();return false;">На главную</a>
+        </div>`;
         return;
       }
       await this._renderGamePage(el, g);
     } catch (e) {
       console.error(e);
-      el.innerHTML = `<div class="empty"><p>Ошибка загрузки</p><p style="font-size:13px;color:var(--muted);white-space:pre-wrap">${esc(e.message || String(e))}</p><a class="btn" href="#" onclick="App.goHome();return false;">На главную</a></div>`;
+      el.innerHTML = `<div class="empty">
+        <p>Ошибка загрузки</p>
+        <p style="font-size:13px;color:var(--muted);white-space:pre-wrap">${esc(e.message || String(e))}</p>
+        <a class="btn" href="#" onclick="App.goHome();return false;">На главную</a>
+      </div>`;
     }
   },
 
   async _renderGamePage(el, g) {
-    supa.rpc("increment_views", { p_game_id: g.id }).catch(() => {});
+    // Increment views — без .catch() на rpc (в supabase-js v2 его нет)
+    try { await supa.rpc("increment_views", { p_game_id: g.id }); }
+    catch (e) { console.warn("increment_views:", e?.message || e); }
 
     const [shotsR, tagsR, versionsR, commentsR] = await Promise.all([
       supa.from("game_screenshots").select("*").eq("game_id", g.id).order("position"),
       supa.from("game_tags").select("tag_id, tags!inner(id,name,slug)").eq("game_id", g.id),
       supa.from("game_versions").select("*").eq("game_id", g.id).order("created_at", { ascending: false }),
-      supa.from("comments").select("*, profiles!inner(username, avatar_url)").eq("game_id", g.id).order("created_at", { ascending: false }).limit(50),
+      supa.from("comments").select("*, profiles!inner(username, avatar_url)")
+          .eq("game_id", g.id).order("created_at", { ascending: false }).limit(50),
     ]);
 
     const shots = shotsR.data ?? [];
@@ -274,26 +311,41 @@ const App = {
 
     el.innerHTML = `
       <div class="game-hero">
-        <div class="game-cover">${g.cover_url ? `<img src="${esc(g.cover_url)}" alt="">` : `<div style="width:100%;height:100%;background:linear-gradient(135deg,#241a4d,#0f1b3b)"></div>`}</div>
+        <div class="game-cover">
+          ${g.cover_url ? `<img src="${esc(g.cover_url)}" alt="">`
+                        : `<div style="width:100%;height:100%;background:linear-gradient(135deg,#241a4d,#0f1b3b)"></div>`}
+        </div>
         <div class="game-info">
           <h1>${esc(g.title)}</h1>
           <p class="game-dev-line">by <b>${esc(g.developer_name)}</b>${g.release_date ? ` · вышла ${fmtDate(g.release_date)}` : ""}</p>
-          <div class="game-tags">${tags.map(t => `<span class="tag" onclick="App.filterByTag('${esc(t.slug)}')">${esc(t.name)}</span>`).join("")}</div>
+          <div class="game-tags">
+            ${tags.map(t => `<span class="tag" onclick="App.filterByTag('${esc(t.slug)}')">${esc(t.name)}</span>`).join("")}
+          </div>
           <div class="game-stats">
             <div class="stat"><div class="stat-value">${g.downloads ?? 0}</div><div class="stat-label">Скачиваний</div></div>
             <div class="stat"><div class="stat-value">${g.views ?? 0}</div><div class="stat-label">Просмотров</div></div>
             <div class="stat"><div class="stat-value">${fmtSize(totalSize)}</div><div class="stat-label">Размер</div></div>
           </div>
           <div class="game-actions">
-            ${primary ? `<a class="btn btn-primary btn-lg" href="${esc(primary.download_url)}" target="_blank" rel="noopener" onclick="App.trackDownload('${g.id}','${latest.id}')">⬇ Скачать ${esc(latest.version)}</a>` : `<button class="btn btn-lg" disabled>Нет билда</button>`}
+            ${primary
+              ? `<a class="btn btn-primary btn-lg" href="${esc(primary.download_url)}" target="_blank" rel="noopener" onclick="App.trackDownload('${g.id}','${latest.id}')">⬇ Скачать ${esc(latest.version)}</a>`
+              : `<button class="btn btn-lg" disabled>Нет билда</button>`}
           </div>
-          <p style="color:var(--muted);font-size:13px;margin-top:14px">Движок: ${esc(engineLabel)} · Обновлено ${timeAgo(g.updated_at)}</p>
+          <p style="color:var(--muted);font-size:13px;margin-top:14px">
+            Движок: ${esc(engineLabel)} · Обновлено ${timeAgo(g.updated_at)}
+          </p>
         </div>
       </div>
 
-      ${shots.length ? `<div class="section"><h2>Скриншоты</h2><div class="shots">${shots.map(s => `<div class="shot" onclick="App.openImage('${esc(s.url)}')"><img src="${esc(s.url)}" loading="lazy"></div>`).join("")}</div></div>` : ""}
+      ${shots.length ? `
+      <div class="section"><h2>Скриншоты</h2>
+        <div class="shots">
+          ${shots.map(s => `<div class="shot" onclick="App.openImage('${esc(s.url)}')"><img src="${esc(s.url)}" loading="lazy"></div>`).join("")}
+        </div>
+      </div>` : ""}
 
-      ${g.description ? `<div class="section"><h2>Об игре</h2><div class="description">${esc(g.description)}</div></div>` : ""}
+      ${g.description ? `
+      <div class="section"><h2>Об игре</h2><div class="description">${esc(g.description)}</div></div>` : ""}
 
       <div class="section">
         <h2>Системные требования</h2>
@@ -303,19 +355,31 @@ const App = {
         </div>
       </div>
 
-      ${versions.length ? `<div class="section"><h2>История обновлений</h2><div style="display:flex;flex-direction:column;gap:14px;margin-top:12px">${versions.map(v => `
-        <div style="padding:14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius)">
-          <div style="display:flex;justify-content:space-between;align-items:baseline">
-            <b>v${esc(v.version)}</b>
-            <span style="color:var(--muted);font-size:12px">${fmtDate(v.created_at)}</span>
-          </div>
-          ${v.changelog ? `<div style="margin-top:8px;color:#cfcfe0;font-size:14px;white-space:pre-wrap">${esc(v.changelog)}</div>` : ""}
-        </div>`).join("")}</div></div>` : ""}
+      ${versions.length ? `
+      <div class="section"><h2>История обновлений</h2>
+        <div style="display:flex;flex-direction:column;gap:14px;margin-top:12px">
+          ${versions.map(v => `
+            <div style="padding:14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius)">
+              <div style="display:flex;justify-content:space-between;align-items:baseline">
+                <b>v${esc(v.version)}</b>
+                <span style="color:var(--muted);font-size:12px">${fmtDate(v.created_at)}</span>
+              </div>
+              ${v.changelog ? `<div style="margin-top:8px;color:#cfcfe0;font-size:14px;white-space:pre-wrap">${esc(v.changelog)}</div>` : ""}
+            </div>`).join("")}
+        </div>
+      </div>` : ""}
 
       <div class="section">
         <h2>Комментарии (${comments.length})</h2>
-        ${state.user ? `<div class="form" style="max-width:100%;margin-top:12px"><textarea id="newComment" placeholder="Напиши что-нибудь..."></textarea><div><button class="btn btn-primary" onclick="App.postComment('${g.id}')">Отправить</button></div></div>` : `<p class="sub">Войди, чтобы оставлять комментарии.</p>`}
-        <div id="commentsList" style="margin-top:18px">${comments.length ? comments.map(c => this.commentHtml(c)).join("") : `<div class="empty">Комментариев пока нет</div>`}</div>
+        ${state.user
+          ? `<div class="form" style="max-width:100%;margin-top:12px">
+               <textarea id="newComment" placeholder="Напиши что-нибудь..."></textarea>
+               <div><button class="btn btn-primary" onclick="App.postComment('${g.id}')">Отправить</button></div>
+             </div>`
+          : `<p class="sub">Войди, чтобы оставлять комментарии.</p>`}
+        <div id="commentsList" style="margin-top:18px">
+          ${comments.length ? comments.map(c => this.commentHtml(c)).join("") : `<div class="empty">Комментариев пока нет</div>`}
+        </div>
       </div>
     `;
   },
@@ -324,13 +388,24 @@ const App = {
     const name = c.profiles?.username ?? "anon";
     const initial = name[0]?.toUpperCase() ?? "?";
     const av = c.profiles?.avatar_url ? `<img src="${esc(c.profiles.avatar_url)}">` : initial;
-    return `<div class="comment"><div class="comment-avatar">${av}</div><div class="comment-body"><div class="comment-head"><span class="comment-author">${esc(name)}</span><span class="comment-time">${timeAgo(c.created_at)}</span></div><div class="comment-text">${esc(c.body)}</div></div></div>`;
+    return `<div class="comment">
+      <div class="comment-avatar">${av}</div>
+      <div class="comment-body">
+        <div class="comment-head">
+          <span class="comment-author">${esc(name)}</span>
+          <span class="comment-time">${timeAgo(c.created_at)}</span>
+        </div>
+        <div class="comment-text">${esc(c.body)}</div>
+      </div>
+    </div>`;
   },
 
   async postComment(gameId) {
     const ta = $("#newComment"); const body = ta.value.trim(); if (!body) return;
     ta.disabled = true;
-    const { error } = await supa.from("comments").insert({ game_id: gameId, user_id: state.user.id, body });
+    const { error } = await supa.from("comments").insert({
+      game_id: gameId, user_id: state.user.id, body,
+    });
     ta.disabled = false;
     if (error) { toast(error.message, "error"); return; }
     ta.value = ""; toast("Комментарий добавлен", "success");
@@ -339,7 +414,11 @@ const App = {
 
   async trackDownload(gameId, versionId) {
     if (!state.user) return;
-    await supa.from("game_downloads").insert({ user_id: state.user.id, game_id: gameId, version_id: versionId });
+    try {
+      await supa.from("game_downloads").insert({
+        user_id: state.user.id, game_id: gameId, version_id: versionId,
+      });
+    } catch (e) { console.warn("trackDownload:", e); }
   },
 
   showProfile() { if (state.user) location.hash = "#/profile/" + state.user.id; },
@@ -351,9 +430,12 @@ const App = {
     window.scrollTo({ top: 0 });
     const { data: p } = await supa.from("profiles").select("*").eq("id", id).single();
     if (!p) { el.innerHTML = `<div class="empty">Профиль не найден</div>`; return; }
-    const { data: games } = await supa.from("games").select("*").eq("developer_id", id).order("created_at", { ascending: false });
+    const { data: games } = await supa.from("games").select("*")
+      .eq("developer_id", id).order("created_at", { ascending: false });
     const initial = (p.username[0] || "?").toUpperCase();
-    const av = p.avatar_url ? `<img src="${esc(p.avatar_url)}" style="width:100%;height:100%;object-fit:cover">` : initial;
+    const av = p.avatar_url
+      ? `<img src="${esc(p.avatar_url)}" style="width:100%;height:100%;object-fit:cover">`
+      : initial;
     const isMe = state.user && state.user.id === p.id;
     el.innerHTML = `
       <div class="section">

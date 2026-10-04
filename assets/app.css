@@ -591,3 +591,67 @@ img { max-width: 100%; display: block; }
   bottom: -7px;
   cursor: nwse-resize;
 }
+
+/* ---------- Tall modal with scroll ---------- */
+.modal-tall {
+  display: flex;
+  flex-direction: column;
+  max-height: 88vh;
+  padding: 0 !important;
+  overflow: hidden;
+}
+
+.modal-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 22px 24px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.modal-head h3 { margin: 0 0 4px; font-size: 20px; }
+.modal-head .sub { margin: 0; color: var(--muted); font-size: 13px; }
+
+.modal-x {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font-size: 18px;
+  line-height: 1;
+  padding: 6px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.modal-x:hover { background: var(--surface-2); color: var(--text); }
+
+.modal-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 18px 24px;
+  overscroll-behavior: contain;
+}
+
+.modal-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 14px 24px 20px;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+}
+
+/* Стилизация скроллбара внутри модалки */
+.modal-scroll::-webkit-scrollbar { width: 10px; }
+.modal-scroll::-webkit-scrollbar-track { background: transparent; }
+.modal-scroll::-webkit-scrollbar-thumb {
+  background: #26263A; border-radius: 5px;
+}
+.modal-scroll::-webkit-scrollbar-thumb:hover { background: #3A3A55; }
+
+/* Чтобы длинная модалка не уезжала под верх экрана */
+.modal-back.open { align-items: flex-start; padding-top: 6vh; }
+
+/* Небольшой отступ у формы внутри модалки */
+.modal-scroll .form { max-width: 100%; }

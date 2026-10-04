@@ -1,6 +1,5 @@
 // website/assets/developer.js
-// NEXPLAY — Developer Dashboard.
-// Один объект Dev, все обработчики внутри. Зависимости: config.js, supabase-js UMD.
+// NEXPLAY Developer Dashboard. Единый файл, всё внутри объекта Dev.
 
 const CFG = window.NEXPLAY_CONFIG;
 const supa = window.supabase.createClient(CFG.SUPABASE_URL, CFG.SUPABASE_KEY);
@@ -11,16 +10,13 @@ const $$ = (s) => Array.from(document.querySelectorAll(s));
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({
   "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
 }[c]));
-
 const fmtSize = (b) => {
   if (!b) return "—";
   const u = ["B", "KB", "MB", "GB"];
-  let i = 0;
-  b = Number(b);
+  let i = 0; b = Number(b);
   while (b >= 1024 && i < u.length - 1) { b /= 1024; i++; }
   return b.toFixed(b < 10 ? 2 : 1) + " " + u[i];
 };
-
 const timeAgo = (d) => {
   if (!d) return "";
   const s = (Date.now() - new Date(d).getTime()) / 1000;
@@ -30,7 +26,6 @@ const timeAgo = (d) => {
   if (s < 604800) return Math.floor(s / 86400) + " дн назад";
   return new Date(d).toLocaleDateString("ru-RU");
 };
-
 function toast(msg, kind = "") {
   const el = document.createElement("div");
   el.className = "toast " + kind;
@@ -40,7 +35,6 @@ function toast(msg, kind = "") {
   setTimeout(() => { el.style.opacity = "0"; el.style.transition = "opacity .3s"; }, 2600);
   setTimeout(() => el.remove(), 3000);
 }
-
 function slugify(s) {
   return String(s).toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
@@ -60,7 +54,6 @@ const Dev = {
     selectedScreenshots: [],
   },
 
-  // ---------- init ----------
   async init() {
     const { data } = await supa.auth.getSession();
     this.state.user = data.session?.user ?? null;
@@ -71,7 +64,6 @@ const Dev = {
     }
     this.renderAuthArea();
 
-    // Тянем теги для подсказок
     try {
       const { data: tags } = await supa.from("tags").select("*").order("name");
       this.state.tagsCache = tags ?? [];
@@ -126,15 +118,12 @@ const Dev = {
     if (error) { toast(error.message, "error"); return; }
     this.state.myGames = games ?? [];
 
-    // теги для игр одним запросом
     const ids = this.state.myGames.map(g => g.id);
     const tagMap = {};
     if (ids.length) {
       const { data: gt } = await supa.from("game_tags")
         .select("game_id, tags!inner(name, slug)").in("game_id", ids);
-      (gt ?? []).forEach(r => {
-        (tagMap[r.game_id] ??= []).push(r.tags);
-      });
+      (gt ?? []).forEach(r => { (tagMap[r.game_id] ??= []).push(r.tags); });
     }
 
     const el = $("#myGames");
@@ -219,6 +208,9 @@ const Dev = {
   openCreate() {
     $("#createModal").classList.add("open");
     $("#createError").classList.add("hidden");
+    // reset scroll
+    const sc = $("#createModal .modal-scroll");
+    if (sc) sc.scrollTop = 0;
 
     const t = $("#fTitle"), s = $("#fSlug");
     t.oninput = () => { if (!s.dataset.touched) s.value = slugify(t.value); };
@@ -322,7 +314,6 @@ const Dev = {
       applyRect();
     };
 
-    // drag
     let dragging = false, dragStart = null;
     const onMouseDown = (e) => {
       if (e.target === handle) return;
@@ -350,7 +341,6 @@ const Dev = {
       overlay.onmousedown = null;
     };
 
-    // resize
     let resizing = false, resizeStart = null;
     handle.onmousedown = (e) => {
       resizing = true;
@@ -407,7 +397,6 @@ const Dev = {
     const blob = await new Promise(res => canvas.toBlob(res, "image/jpeg", 0.9));
     c.resultBlob = blob;
 
-    // превью
     const preview = URL.createObjectURL(blob);
     const old = $("#fCover")?.parentElement?.querySelector(".cover-preview");
     if (old) old.remove();
@@ -427,6 +416,8 @@ const Dev = {
     errEl.classList.add("hidden");
     const err = (m) => {
       errEl.textContent = m; errEl.classList.remove("hidden");
+      const sc = $("#createModal .modal-scroll");
+      if (sc) sc.scrollTop = sc.scrollHeight;
       toast(m, "error");
     };
 
@@ -485,11 +476,9 @@ const Dev = {
       }).select().single();
       if (gErr) throw gErr;
 
-      // теги
       const tagNames = tagsRaw.split(",").map(s => s.trim()).filter(Boolean);
       for (const name of tagNames) await this.attachTag(game.id, name);
 
-      // скриншоты
       for (const shot of this.state.selectedScreenshots) {
         const url = await this.uploadImage(shot.file, "screenshots",
           `${this.state.user.id}/${game.id}/${Date.now()}-${shot.file.name}`);
@@ -542,6 +531,8 @@ const Dev = {
     $("#vPrimary").checked = true;
     $("#btnVersionSubmit").disabled = false;
     $("#btnVersionSubmit").textContent = "Опубликовать версию";
+    const sc = $("#versionModal .modal-scroll");
+    if (sc) sc.scrollTop = 0;
   },
   closeVersion() { $("#versionModal").classList.remove("open"); },
 
@@ -550,6 +541,8 @@ const Dev = {
     errEl.classList.add("hidden");
     const err = (m) => {
       errEl.textContent = m; errEl.classList.remove("hidden");
+      const sc = $("#versionModal .modal-scroll");
+      if (sc) sc.scrollTop = sc.scrollHeight;
       toast(m, "error");
     };
 
@@ -578,6 +571,23 @@ const Dev = {
     prog.classList.remove("hidden");
 
     try {
+      // --- ИСПРАВЛЕНИЕ DUPLICATE KEY ---
+      // Если такая версия уже есть — удаляем её (CASCADE удалит version_files).
+      const { data: existing } = await supa
+        .from("game_versions")
+        .select("id")
+        .eq("game_id", gameId)
+        .eq("version", version)
+        .maybeSingle();
+
+      if (existing) {
+        const { error: delErr } = await supa
+          .from("game_versions")
+          .delete()
+          .eq("id", existing.id);
+        if (delErr) throw new Error("Не удалось перезаписать версию: " + delErr.message);
+      }
+
       const { data: vRow, error: vErr } = await supa.from("game_versions").insert({
         game_id: gameId,
         version,
@@ -596,7 +606,7 @@ const Dev = {
         txt.textContent = "Загрузка в хранилище...";
         fileName = file.name;
         fileSize = file.size;
-        const path = `${this.state.user.id}/${gameId}/${version}/${file.name}`;
+        const path = `${this.state.user.id}/${gameId}/${version}/${Date.now()}-${file.name}`;
 
         const { error: upErr } = await supa.storage.from("builds").upload(path, file, {
           upsert: false,
@@ -645,6 +655,5 @@ const Dev = {
   },
 };
 
-// ---------- bootstrap ----------
 window.Dev = Dev;
 window.addEventListener("DOMContentLoaded", () => Dev.init());

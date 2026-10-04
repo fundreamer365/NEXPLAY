@@ -25,15 +25,21 @@
 
   <div class="section">
     <h1 style="font-size:38px;margin:0 0 6px;letter-spacing:-0.02em">Developer Dashboard</h1>
-    <p class="sub">Управляй играми, редактируй, обновляй билды.</p>
+    <p class="sub">Управляй играми: создавай, редактируй, удаляй, обновляй билды.</p>
   </div>
 
   <section id="notAuth" class="hidden">
-    <div class="empty"><p>Войди в NEXPLAY.</p><button class="btn btn-primary" onclick="location.href='index.html'">На главную</button></div>
+    <div class="empty">
+      <p>Войди в NEXPLAY, чтобы открыть панель разработчика.</p>
+      <button class="btn btn-primary" onclick="location.href='index.html'">На главную</button>
+    </div>
   </section>
 
   <section id="becomeDev" class="hidden">
-    <div class="empty"><p>Активируй роль разработчика.</p><button class="btn btn-primary" onclick="Dev.becomeDeveloper()">Стать разработчиком</button></div>
+    <div class="empty">
+      <p>Твой аккаунт пока в роли <b>user</b>. Активируй роль разработчика.</p>
+      <button class="btn btn-primary" onclick="Dev.becomeDeveloper()">Стать разработчиком</button>
+    </div>
   </section>
 
   <section id="dashboard" class="hidden">
@@ -64,9 +70,9 @@
           <div class="field"><label>Название</label><input type="text" id="fTitle" placeholder="My Awesome Game"></div>
           <div class="field"><label>Slug (URL)</label><input type="text" id="fSlug" placeholder="my-awesome-game"></div>
         </div>
-        <div class="field"><label>Имя разработчика / студии</label><input type="text" id="fDevName" placeholder="Indie Studio"></div>
-        <div class="field"><label>Короткое описание</label><input type="text" id="fShort" maxlength="200"></div>
-        <div class="field"><label>Полное описание</label><textarea id="fDesc" rows="5"></textarea></div>
+        <div class="field"><label>Имя разработчика / студии (публичное)</label><input type="text" id="fDevName" placeholder="Indie Studio"></div>
+        <div class="field"><label>Короткое описание</label><input type="text" id="fShort" maxlength="200" placeholder="Одно предложение"></div>
+        <div class="field"><label>Полное описание</label><textarea id="fDesc" rows="5" placeholder="Расскажи об игре..."></textarea></div>
 
         <div class="row">
           <div class="field">
@@ -80,10 +86,14 @@
           </div>
           <div class="field" id="unityBackendWrap" style="display:none">
             <label>Unity Backend</label>
-            <select id="fUnityBackend"><option value="mono">Mono</option><option value="il2cpp">IL2CPP</option></select>
+            <select id="fUnityBackend">
+              <option value="mono">Mono</option>
+              <option value="il2cpp">IL2CPP</option>
+            </select>
           </div>
           <div class="field" id="unrealVersionWrap" style="display:none">
-            <label>Unreal версия</label><input type="text" id="fUnrealVersion" placeholder="5.3">
+            <label>Unreal версия</label>
+            <input type="text" id="fUnrealVersion" placeholder="5.3">
           </div>
         </div>
 
@@ -94,19 +104,29 @@
 
         <div class="field">
           <label>Теги (через запятую)</label>
-          <input type="text" id="fTags" placeholder="Action, Indie">
+          <input type="text" id="fTags" placeholder="Action, Indie, Multiplayer">
           <div class="game-tags" id="tagSuggest" style="margin-top:8px"></div>
         </div>
 
-        <div class="field"><label>Обложка (16:9)</label><input type="file" id="fCover" accept="image/*"></div>
-        <div class="field"><label>Скриншоты</label><input type="file" id="fShots" accept="image/*" multiple><div class="shots" id="shotsPreview" style="margin-top:10px"></div></div>
-
-        <div class="row">
-          <div class="field"><label>Минимальные требования</label><textarea id="fSysMin" rows="4"></textarea></div>
-          <div class="field"><label>Рекомендуемые требования</label><textarea id="fSysRec" rows="4"></textarea></div>
+        <div class="field">
+          <label>Обложка (16:9, до 5 МБ)</label>
+          <input type="file" id="fCover" accept="image/*">
         </div>
 
-        <label style="display:flex;gap:10px;align-items:center;font-size:14px"><input type="checkbox" id="fDrop" style="width:auto"> 🚀 NEXPLAY Drop</label>
+        <div class="field">
+          <label>Скриншоты (несколько)</label>
+          <input type="file" id="fShots" accept="image/*" multiple>
+          <div class="shots" id="shotsPreview" style="margin-top:10px"></div>
+        </div>
+
+        <div class="row">
+          <div class="field"><label>Минимальные требования</label><textarea id="fSysMin" rows="4" placeholder="OS: Windows 10&#10;CPU: i3&#10;RAM: 4 GB"></textarea></div>
+          <div class="field"><label>Рекомендуемые требования</label><textarea id="fSysRec" rows="4" placeholder="OS: Windows 11&#10;CPU: i5&#10;RAM: 8 GB"></textarea></div>
+        </div>
+
+        <label style="display:flex;gap:10px;align-items:center;font-size:14px;color:var(--text)">
+          <input type="checkbox" id="fDrop" style="width:auto"> 🚀 Опубликовать как NEXPLAY Drop (48 ч на главной)
+        </label>
 
         <div id="createError" class="hidden" style="color:var(--danger);font-size:13px"></div>
       </div>
@@ -126,16 +146,28 @@
       <div><h3>Новая версия</h3><p class="sub">ZIP до 50 МБ или внешняя ссылка.</p></div>
       <button class="modal-x" onclick="Dev.closeVersion()">✕</button>
     </div>
+
     <div class="modal-scroll">
       <div class="form">
         <div class="row">
           <div class="field"><label>Версия</label><input type="text" id="vVersion" placeholder="1.0.0"></div>
           <div class="field"><label>EXE внутри архива</label><input type="text" id="vExe" placeholder="MyGame.exe"></div>
         </div>
-        <div class="field"><label>Changelog</label><textarea id="vChangelog" rows="4"></textarea></div>
-        <div class="field"><label>ZIP-билд</label><input type="file" id="vFile" accept=".zip,application/zip"></div>
-        <div class="field"><label>…или внешняя ссылка</label><input type="url" id="vExternalUrl" placeholder="https://..."></div>
-        <label style="display:flex;gap:10px;align-items:center;font-size:14px"><input type="checkbox" id="vPrimary" checked style="width:auto"> Главный билд</label>
+        <div class="field"><label>Changelog</label><textarea id="vChangelog" rows="4" placeholder="Что нового..."></textarea></div>
+        <div class="field">
+          <label>ZIP-билд</label>
+          <input type="file" id="vFile" accept=".zip,application/zip">
+          <div style="font-size:12px;color:var(--muted);margin-top:6px">
+            Максимум 50 МБ (free tier Supabase). Для больших билдов используй ссылку ниже.
+          </div>
+        </div>
+        <div class="field">
+          <label>…или внешняя ссылка на ZIP</label>
+          <input type="url" id="vExternalUrl" placeholder="https://github.com/user/repo/releases/download/v1.0.0/game.zip">
+        </div>
+        <label style="display:flex;gap:10px;align-items:center;font-size:14px;color:var(--text)">
+          <input type="checkbox" id="vPrimary" checked style="width:auto"> Это главный билд игры
+        </label>
         <div id="versionProgress" class="hidden">
           <div style="height:8px;background:var(--surface-2);border-radius:999px;overflow:hidden;margin-top:10px">
             <div id="versionProgressBar" style="height:100%;width:0%;background:linear-gradient(90deg,var(--accent),var(--accent-2));transition:width .2s"></div>
@@ -145,6 +177,7 @@
         <div id="versionError" class="hidden" style="color:var(--danger);font-size:13px"></div>
       </div>
     </div>
+
     <div class="modal-foot">
       <button class="btn btn-ghost" onclick="Dev.closeVersion()">Отмена</button>
       <button class="btn btn-primary" id="btnVersionSubmit" onclick="Dev.submitVersion()">Опубликовать версию</button>
@@ -152,16 +185,18 @@
   </div>
 </div>
 
-<!-- CROPPER -->
+<!-- CROPPER MODAL -->
 <div class="modal-back" id="cropperModal">
   <div class="modal" style="max-width:680px">
     <div class="modal-head">
-      <div><h3>Обрезка обложки</h3><p class="sub">16:9</p></div>
+      <div><h3>Обрезка обложки</h3><p class="sub">Перетащи рамку, потяни за угол. Соотношение 16:9.</p></div>
       <button class="modal-x" onclick="Dev.closeCropper()">✕</button>
     </div>
     <div class="cropper-stage" id="cropperStage">
       <img id="cropperImg" alt="">
-      <div class="cropper-overlay" id="cropperOverlay"><div class="cropper-handle" id="cropperHandle"></div></div>
+      <div class="cropper-overlay" id="cropperOverlay">
+        <div class="cropper-handle" id="cropperHandle"></div>
+      </div>
     </div>
     <div class="modal-foot">
       <button class="btn btn-ghost" onclick="Dev.closeCropper()">Отмена</button>
@@ -170,12 +205,17 @@
   </div>
 </div>
 
-<!-- NOTIF -->
+<!-- NOTIF MODAL -->
 <div class="modal-back" id="notifModal">
   <div class="modal" style="max-width:640px">
-    <div class="modal-head"><h3>Уведомления</h3><button class="modal-x" onclick="Dev.closeNotifications()">✕</button></div>
+    <div class="modal-head">
+      <h3>Уведомления</h3>
+      <button class="modal-x" onclick="Dev.closeNotifications()">✕</button>
+    </div>
     <div id="notifList" style="max-height:60vh;overflow:auto;margin-top:12px"></div>
-    <div class="modal-foot"><button class="btn btn-ghost" onclick="Dev.closeNotifications()">Закрыть</button></div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="Dev.closeNotifications()">Закрыть</button>
+    </div>
   </div>
 </div>
 
